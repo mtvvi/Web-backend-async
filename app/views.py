@@ -67,8 +67,15 @@ def start_activation(request):
     """
     Точка входа: принимает задачу на расчет sub_total по услуге заявки.
     Ожидает JSON с полями licenseCalculationRequest_id, service_id, license_type, base_price, support_level,
-    users, cores, period, callback_url (необязателен), secret_key.
+    users, cores, period, callback_url (необязателен) и заголовок X-Async-Key.
     """
+    # Проверка секретного ключа в заголовке
+    if request.headers.get("X-Async-Key") != ASYNC_SECRET_KEY:
+        return Response(
+            {"error": "недопустимый ключ"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    
     required_fields = [
         "licenseCalculationRequest_id",
         "service_id",
@@ -78,7 +85,6 @@ def start_activation(request):
         "users",
         "cores",
         "period",
-        "secret_key",
     ]
     if not all(field in request.data for field in required_fields):
         return Response(
