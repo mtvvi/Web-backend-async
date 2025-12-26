@@ -7,7 +7,7 @@ import requests
 from concurrent import futures
 
 # Конфигурация для взаимодействия с основным сервисом
-DEFAULT_CALLBACK_TEMPLATE = "http://localhost:8080/api/async/orders/{order_id}/services/{service_id}/subtotal"
+DEFAULT_CALLBACK_TEMPLATE = "http://localhost:8080/api/async/licenseCalculationRequests/{licenseCalculationRequest_id}/services/{service_id}/subtotal"
 ASYNC_SECRET_KEY = "license-async-key"
 
 executor = futures.ThreadPoolExecutor(max_workers=5)
@@ -18,13 +18,13 @@ def get_delay_seconds():
     return random.randint(5, 10)
 
 
-def calculate_subtotal(order_id, service_id, license_type, base_price, support_level, users, cores, period):
+def calculate_subtotal(licenseCalculationRequest_id, service_id, license_type, base_price, support_level, users, cores, period):
     """
     Имитация долгого расчета sub_total.
     Количество берется по типу лицензии, формула как в основном сервисе.
     """
     delay = get_delay_seconds()
-    print(f"[ASYNC] start calc for order={order_id}, service={service_id}, wait {delay}s")
+    print(f"[ASYNC] start calc for licenseCalculationRequest={licenseCalculationRequest_id}, service={service_id}, wait {delay}s")
     time.sleep(delay)
 
     quantity = 1
@@ -37,7 +37,7 @@ def calculate_subtotal(order_id, service_id, license_type, base_price, support_l
 
     subtotal = float(base_price) * float(quantity) * float(support_level)
     subtotal = round(subtotal, 2)
-    print(f"[ASYNC] subtotal={subtotal} for order={order_id}, service={service_id}")
+    print(f"[ASYNC] subtotal={subtotal} for licenseCalculationRequest={licenseCalculationRequest_id}, service={service_id}")
 
     return subtotal
 
@@ -66,11 +66,11 @@ def send_subtotal_result(task):
 def start_activation(request):
     """
     Точка входа: принимает задачу на расчет sub_total по услуге заявки.
-    Ожидает JSON с полями order_id, service_id, license_type, base_price, support_level,
+    Ожидает JSON с полями licenseCalculationRequest_id, service_id, license_type, base_price, support_level,
     users, cores, period, callback_url (необязателен), secret_key.
     """
     required_fields = [
-        "order_id",
+        "licenseCalculationRequest_id",
         "service_id",
         "license_type",
         "base_price",
@@ -86,7 +86,7 @@ def start_activation(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    order_id = request.data["order_id"]
+    licenseCalculationRequest_id = request.data["licenseCalculationRequest_id"]
     service_id = request.data["service_id"]
     license_type = request.data["license_type"]
     support_level = request.data["support_level"]
@@ -97,21 +97,21 @@ def start_activation(request):
     secret_key = request.data.get("secret_key", ASYNC_SECRET_KEY)
     callback_url = request.data.get(
         "callback_url",
-        DEFAULT_CALLBACK_TEMPLATE.format(order_id=order_id, service_id=service_id),
+        DEFAULT_CALLBACK_TEMPLATE.format(licenseCalculationRequest_id=licenseCalculationRequest_id, service_id=service_id),
     )
 
     print(
-        f"[ASYNC] received task: order={order_id}, service={service_id}, "
+        f"[ASYNC] received task: licenseCalculationRequest={licenseCalculationRequest_id}, service={service_id}, "
         f"type={license_type}, price={base_price}, support={support_level}, users={users}, cores={cores}, period={period}"
     )
 
     # Планируем задачу в пуле
     task = executor.submit(
         lambda: {
-            "order_id": order_id,
+            "licenseCalculationRequest_id": licenseCalculationRequest_id,
             "service_id": service_id,
             "subtotal": calculate_subtotal(
-                order_id,
+                licenseCalculationRequest_id,
                 service_id,
                 license_type,
                 base_price,
@@ -129,7 +129,7 @@ def start_activation(request):
     return Response(
         {
             "message": "Расчет sub_total запущен",
-            "order_id": order_id,
+            "licenseCalculationRequest_id": licenseCalculationRequest_id,
             "service_id": service_id,
             "eta": "5-10 секунд",
         },
